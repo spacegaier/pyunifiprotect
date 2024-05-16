@@ -156,13 +156,12 @@ async def check_bootstrap(bootstrap: Bootstrap):
 def test_base_url(protect_client: ProtectApiClient):
     arg = f"{protect_client.ws_path}?lastUpdateId={protect_client.bootstrap.last_update_id}"
 
-    assert protect_client.base_url == "https://127.0.0.1:0"
+    assert protect_client._os.base_url == "https://127.0.0.1:0"
     assert protect_client.ws_url == f"wss://127.0.0.1:0{arg}"
 
-    protect_client._port = 443
-    protect_client._update_url()
+    protect_client.set_url("127.0.0.1", 443)
 
-    assert protect_client.base_url == "https://127.0.0.1"
+    assert protect_client._os.base_url == "https://127.0.0.1"
     assert protect_client.ws_url == f"wss://127.0.0.1{arg}"
 
 
@@ -276,23 +275,23 @@ def test_connection_host(protect_client: ProtectApiClient):
     ]
 
     # mismatch between client IP and IP that NVR returns
-    protect_client._connection_host = None
-    protect_client._host = "192.168.10.1"
+    protect_client._connection_host = "1.1.1.1"
+    protect_client.set_url("192.168.10.1", 443)
     assert protect_client.connection_host == IPv4Address("192.168.1.1")
 
     # same IP from client and NVR (first match)
-    protect_client._connection_host = None
-    protect_client._host = "192.168.1.1"
+    protect_client._connection_host = "1.1.1.1"
+    protect_client.set_url("192.168.1.1", 443)
     assert protect_client.connection_host == IPv4Address("192.168.1.1")
 
     # same IP from client and NVR (not first match)
-    protect_client._connection_host = None
-    protect_client._host = "192.168.3.1"
+    protect_client._connection_host = "1.1.1.1"
+    protect_client.set_url("192.168.3.1", 443)
     assert protect_client.connection_host == IPv4Address("192.168.3.1")
 
     # same IP from client and NVR (not first match, DNS host)
-    protect_client._connection_host = None
-    protect_client._host = "se-gw.local"
+    protect_client._connection_host = "1.1.1.1"
+    protect_client.set_url("se-gw.local", 443)
     assert protect_client.connection_host == "se-gw.local"
 
 

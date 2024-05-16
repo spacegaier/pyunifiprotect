@@ -1060,7 +1060,7 @@ class NVR(ProtectDeviceModel):
 
     @property
     def protect_url(self) -> str:
-        return f"{self.api.base_url}/protect/devices/{self.api.bootstrap.nvr.id}"
+        return f"{self.api.protect_url}/devices/{self.api.bootstrap.nvr.id}"
 
     @property
     def device_name(self) -> str:
@@ -1546,4 +1546,4 @@ class Liveview(ProtectModelWithId):
 
     @property
     def protect_url(self) -> str:
-        return f"{self.api.base_url}/protect/liveview/{self.id}"
+        return f"{self.api.protect_url}/liveview/{self.id}"

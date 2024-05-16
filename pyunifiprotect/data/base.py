@@ -1024,7 +1024,7 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
     def protect_url(self) -> str:
         """UFP Web app URL for this device"""
 
-        return f"{self.api.base_url}/protect/devices/{self.id}"
+        return f"{self.api.protect_url}/devices/{self.id}"
 
     @property
     def is_adopted_by_us(self) -> bool:

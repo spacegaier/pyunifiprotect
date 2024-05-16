@@ -1216,7 +1216,7 @@ class Camera(ProtectMotionDeviceModel):
 
     @property
     def timelapse_url(self) -> str:
-        return f"{self.api.base_url}/protect/timelapse/{self.id}"
+        return f"{self.api.protect_url}/timelapse/{self.id}"
 
     @property
     def is_privacy_on(self) -> bool:

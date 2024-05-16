@@ -258,7 +258,7 @@ async def setup_client(
     ws._get_session = mock_cs  # type: ignore[method-assign]
     client.api_request = AsyncMock(side_effect=mock_api_request)  # type: ignore[method-assign]
     client.api_request_raw = AsyncMock(side_effect=mock_api_request_raw)  # type: ignore[method-assign]
-    client.ensure_authenticated = AsyncMock()  # type: ignore[method-assign]
+    client._os.ensure_authenticated = AsyncMock()  # type: ignore[method-assign]
     await client.update()
 
     # make sure global recording settings are disabled for all cameras (test expect it)

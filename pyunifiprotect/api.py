@@ -6,12 +6,10 @@ import asyncio
 from collections.abc import Callable
 import contextlib
 from datetime import datetime, timedelta
-import hashlib
-from http.cookies import Morsel, SimpleCookie
+from http.cookies import Morsel
 from ipaddress import IPv4Address, IPv6Address
 import logging
 from pathlib import Path
-import re
 import sys
 import time
 from typing import Any, Literal, Optional, Union, cast
@@ -19,12 +17,10 @@ from urllib.parse import urljoin
 from uuid import UUID
 
 import aiofiles
-from aiofiles import os as aos
 import aiohttp
-from aiohttp import CookieJar, client_exceptions
+from aiohttp import client_exceptions
 import orjson
-from platformdirs import user_cache_dir, user_config_dir
-from yarl import URL
+from platformdirs import user_cache_dir
 
 from pyunifiprotect.data import (
     NVR,
@@ -54,15 +50,9 @@ from pyunifiprotect.data import (
 from pyunifiprotect.data.base import ProtectModelWithId
 from pyunifiprotect.data.devices import Chime
 from pyunifiprotect.data.types import IteratorCallback, ProgressCallback, RecordingMode
-from pyunifiprotect.exceptions import BadRequest, NotAuthorized, NvrError
-from pyunifiprotect.utils import (
-    decode_token_cookie,
-    get_response_reason,
-    ip_from_host,
-    set_debug,
-    to_js_time,
-    utc_now,
-)
+from pyunifiprotect.exceptions import BadRequest, NvrError
+from pyunifiprotect.session import STORAGE_DIRECTORY, UnifiOSClient
+from pyunifiprotect.utils import ip_from_host, set_debug, to_js_time, utc_now
 from pyunifiprotect.websocket import Websocket
 
 TOKEN_COOKIE_MAX_EXP_SECONDS = 60
@@ -82,7 +72,7 @@ If your Protect instance has a lot of events, this request will take much longer
 
 
 _LOGGER = logging.getLogger(__name__)
-_COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
+
 
 # TODO: Urls to still support
 # Backups
@@ -140,39 +130,20 @@ _COOKIE_RE = re.compile(r"^set-cookie: ", re.IGNORECASE)
 # GET /timeline
 
 
-def get_user_hash(host: str, username: str) -> str:
-    session = hashlib.sha256()
-    session.update(host.encode("utf8"))
-    session.update(username.encode("utf8"))
-    return session.hexdigest()
-
-
 class BaseApiClient:
-    _host: str
-    _port: int
-    _username: str
-    _password: str
-    _verify_ssl: bool
     _ws_timeout: int
+    _os: UnifiOSClient
 
-    _is_authenticated: bool = False
     _last_update: float = NEVER_RAN
     _last_ws_status: bool = False
     _last_token_cookie: Morsel[str] | None = None
     _last_token_cookie_decode: Optional[dict[str, Any]] = None
-    _session: Optional[aiohttp.ClientSession] = None
-    _loaded_session: bool = False
-    _cookiename = "TOKEN"
 
-    headers: Optional[dict[str, str]] = None
     _websocket: Optional[Websocket] = None
 
     api_path: str = "/proxy/protect/api/"
     ws_path: str = "/proxy/protect/ws/updates"
-
     cache_dir: Path
-    config_dir: Path
-    store_sessions: bool
 
     def __init__(
         self,
@@ -184,86 +155,63 @@ class BaseApiClient:
         session: Optional[aiohttp.ClientSession] = None,
         ws_timeout: int = 30,
         cache_dir: Optional[Path] = None,
-        config_dir: Optional[Path] = None,
         store_sessions: bool = True,
     ) -> None:
         self._auth_lock = asyncio.Lock()
-        self._host = host
-        self._port = port
-
-        self._username = username
-        self._password = password
-        self._verify_ssl = verify_ssl
+        self._os = UnifiOSClient(
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            verify_ssl=verify_ssl,
+            session=session,
+            cache_dir=cache_dir,
+            store_sessions=store_sessions,
+        )
         self._ws_timeout = ws_timeout
-        self._loaded_session = False
+        self.cache_dir = cache_dir or (Path(user_cache_dir()) / STORAGE_DIRECTORY)
 
-        self.config_dir = config_dir or (Path(user_config_dir()) / "ufp")
-        self.cache_dir = cache_dir or (Path(user_cache_dir()) / "ufp_cache")
-        self.store_sessions = store_sessions
+    @property
+    def os_client(self) -> UnifiOSClient:
+        """Get UniFi OS client."""
 
-        if session is not None:
-            self._session = session
+        return self._os
 
-        self._update_url()
+    @property
+    def protect_url(self) -> str:
+        """Base Protect URL."""
 
-    def _update_url(self) -> None:
-        """Updates the url after changing _host or _port."""
-        if self._port != 443:
-            self._url = URL(f"https://{self._host}:{self._port}")
-        else:
-            self._url = URL(f"https://{self._host}")
-
-        self.base_url = str(self._url)
-
-    def _update_cookiename(self, cookie: SimpleCookie) -> None:
-        if "UOS_TOKEN" in cookie:
-            self._cookiename = "UOS_TOKEN"
+        return f"{self._os.base_url}/protect"
 
     @property
     def ws_url(self) -> str:
-        url = f"wss://{self._host}"
-        if self._port != 443:
-            url += f":{self._port}"
-
+        url = self._os.base_url.replace("https", "wss")
         url += self.ws_path
         last_update_id = self._get_last_update_id()
         if last_update_id is None:
             return url
         return f"{url}?lastUpdateId={last_update_id}"
 
-    @property
-    def config_file(self) -> Path:
-        return self.config_dir / "unifi_protect.json"
-
     async def get_session(self) -> aiohttp.ClientSession:
         """Gets or creates current client session"""
 
-        if self._session is None or self._session.closed:
-            if self._session is not None and self._session.closed:
-                _LOGGER.debug("Session was closed, creating a new one")
-            # need unsafe to access httponly cookies
-            self._session = aiohttp.ClientSession(cookie_jar=CookieJar(unsafe=True))
-
-        return self._session
+        return await self._os.get_session()
 
     async def get_websocket(self) -> Websocket:
         """Gets or creates current Websocket."""
 
         async def _auth(force: bool) -> Optional[dict[str, str]]:
             if force:
-                if self._session is not None:
-                    self._session.cookie_jar.clear()
-                self.set_header("cookie", None)
-                self.set_header("x-csrf-token", None)
+                await self._os.clear_auth()
 
-            await self.ensure_authenticated()
-            return self.headers
+            await self._os.ensure_authenticated()
+            return self._os.headers
 
         if self._websocket is None:
             self._websocket = Websocket(
                 self.ws_url,
                 _auth,
-                verify=self._verify_ssl,
+                verify=self._os.verify_ssl,
                 timeout=self._ws_timeout,
             )
             self._websocket.subscribe(self._process_ws_message)
@@ -273,83 +221,7 @@ class BaseApiClient:
     async def close_session(self) -> None:
         """Closing and delets client session"""
 
-        if self._session is not None:
-            await self._session.close()
-            self._session = None
-            self._loaded_session = False
-
-    def set_header(self, key: str, value: str | None) -> None:
-        """Set header."""
-
-        self.headers = self.headers or {}
-        if value is None:
-            self.headers.pop(key, None)
-        else:
-            self.headers[key] = value
-
-    async def request(
-        self,
-        method: str,
-        url: str,
-        require_auth: bool = False,
-        auto_close: bool = True,
-        **kwargs: Any,
-    ) -> aiohttp.ClientResponse:
-        """Make a request to UniFi Protect"""
-
-        if require_auth:
-            await self.ensure_authenticated()
-
-        request_url = self._url.joinpath(url[1:])
-        headers = kwargs.get("headers") or self.headers
-        _LOGGER.debug("Request url: %s", request_url)
-        if not self._verify_ssl:
-            kwargs["ssl"] = False
-        session = await self.get_session()
-
-        for attempt in range(2):
-            try:
-                req_context = session.request(
-                    method,
-                    request_url,
-                    headers=headers,
-                    **kwargs,
-                )
-                response = await req_context.__aenter__()  # noqa: PLC2801
-
-                await self._update_last_token_cookie(response)
-                if auto_close:
-                    try:
-                        _LOGGER.debug(
-                            "%s %s %s",
-                            response.status,
-                            response.content_type,
-                            response,
-                        )
-                        response.release()
-                    except Exception:
-                        # make sure response is released
-                        response.release()
-                        # re-raise exception
-                        raise
-
-                return response
-            except aiohttp.ServerDisconnectedError as err:
-                # If the server disconnected, try again
-                # since HTTP/1.1 allows the server to disconnect
-                # at any time
-                if attempt == 0:
-                    continue
-                raise NvrError(
-                    f"Error requesting data from {self._host}: {err}",
-                ) from err
-            except client_exceptions.ClientError as err:
-                raise NvrError(
-                    f"Error requesting data from {self._host}: {err}",
-                ) from err
-
-        # should never happen
-        raise NvrError(f"Error requesting data from {self._host}")
+        await self._os.close_session()
 
     async def api_request_raw(
         self,
@@ -362,7 +234,7 @@ class BaseApiClient:
         """Make a request to UniFi Protect API"""
 
         url = urljoin(self.api_path, url)
-        response = await self.request(
+        response = await self._os.request(
             method,
             url,
             require_auth=require_auth,
@@ -371,16 +243,12 @@ class BaseApiClient:
         )
 
         try:
-            if response.status != 200:
-                reason = await get_response_reason(response)
-                msg = "Request failed: %s - Status: %s - Reason: %s"
+            try:
+                await self._os.verify_response(url, response)
+            except NvrError as ex:
                 if raise_exception:
-                    if response.status in {401, 403}:
-                        raise NotAuthorized(msg % (url, response.status, reason))
-                    if response.status >= 400 and response.status < 500:
-                        raise BadRequest(msg % (url, response.status, reason))
-                    raise NvrError(msg % (url, response.status, reason))
-                _LOGGER.debug(msg, url, response.status, reason)
+                    raise
+                _LOGGER.debug(str(ex))
                 return None
 
             data: Optional[bytes] = await response.read()
@@ -455,172 +323,6 @@ class BaseApiClient:
             raise NvrError(f"Could not decode list from {url}")
 
         return data
-
-    async def ensure_authenticated(self) -> None:
-        """Ensure we are authenticated."""
-
-        await self._load_session()
-        if self.is_authenticated() is False:
-            await self.authenticate()
-
-    async def authenticate(self) -> None:
-        """Authenticate and get a token."""
-        if self._auth_lock.locked():
-            # If an auth is already in progress
-            # do not start another one
-            async with self._auth_lock:
-                return
-
-        async with self._auth_lock:
-            url = "/api/auth/login"
-
-            if self._session is not None:
-                self._session.cookie_jar.clear()
-                self.set_header("cookie", None)
-
-            auth = {
-                "username": self._username,
-                "password": self._password,
-                "rememberMe": self.store_sessions,
-            }
-
-            response = await self.request("post", url=url, json=auth)
-            self.set_header("cookie", response.headers.get("set-cookie", ""))
-            self._is_authenticated = True
-            await self._update_last_token_cookie(response)
-            _LOGGER.debug("Authenticated successfully!")
-
-    async def _update_last_token_cookie(self, response: aiohttp.ClientResponse) -> None:
-        """Update the last token cookie."""
-
-        csrf_token = response.headers.get("x-csrf-token")
-        if (
-            csrf_token is not None
-            and self.headers
-            and csrf_token != self.headers.get("x-csrf-token")
-        ):
-            self.set_header("x-csrf-token", csrf_token)
-            await self._update_last_token_cookie(response)
-            self._update_cookiename(response.cookies)
-
-        if (
-            token_cookie := response.cookies.get(self._cookiename)
-        ) and token_cookie != self._last_token_cookie:
-            self._last_token_cookie = token_cookie
-            if self.store_sessions:
-                await self._update_auth_config(self._last_token_cookie)
-            self._last_token_cookie_decode = None
-
-    async def _update_auth_config(self, cookie: Morsel[str]) -> None:
-        """Updates auth cookie on disk for persistent sessions."""
-
-        if self._last_token_cookie is None:
-            return
-
-        await aos.makedirs(self.config_dir, exist_ok=True)
-
-        config: dict[str, Any] = {}
-        session_hash = get_user_hash(str(self._url), self._username)
-        try:
-            async with aiofiles.open(self.config_file, "rb") as f:
-                config_data = await f.read()
-                if config_data:
-                    try:
-                        config = orjson.loads(config_data)
-                    except Exception:
-                        _LOGGER.warning("Invalid config file, ignoring.")
-        except FileNotFoundError:
-            pass
-
-        config["sessions"] = config.get("sessions", {})
-        config["sessions"][session_hash] = {
-            "metadata": dict(cookie),
-            "cookiename": self._cookiename,
-            "value": cookie.value,
-            "csrf": self.headers.get("x-csrf-token") if self.headers else None,
-        }
-
-        async with aiofiles.open(self.config_file, "wb") as f:
-            await f.write(orjson.dumps(config, option=orjson.OPT_INDENT_2))
-
-    async def _load_session(self) -> None:
-        if self._session is None:
-            await self.get_session()
-            assert self._session is not None
-
-        if not self._loaded_session and self.store_sessions:
-            session_cookie = await self._read_auth_config()
-            self._loaded_session = True
-            if session_cookie:
-                _LOGGER.debug("Successfully loaded session from config")
-                self._session.cookie_jar.update_cookies(session_cookie)
-
-    async def _read_auth_config(self) -> SimpleCookie | None:
-        """Read auth cookie from config."""
-
-        try:
-            async with aiofiles.open(self.config_file, "rb") as f:
-                config_data = await f.read()
-                if config_data:
-                    try:
-                        config = orjson.loads(config_data)
-                    except Exception:
-                        _LOGGER.warning("Invalid config file, ignoring.")
-                        return None
-        except FileNotFoundError:
-            _LOGGER.debug("no config file, not loading session")
-            return None
-
-        session_hash = get_user_hash(str(self._url), self._username)
-        session = config.get("sessions", {}).get(session_hash)
-        if not session:
-            _LOGGER.debug("No existing session for %s", session_hash)
-            return None
-
-        cookie = SimpleCookie()
-        cookie_name = session.get("cookiename")
-        if cookie_name is None:
-            return None
-        cookie[cookie_name] = session.get("value")
-        for key, value in session.get("metadata", {}).items():
-            cookie[cookie_name][key] = value
-
-        cookie_value = _COOKIE_RE.sub("", str(cookie[cookie_name]))
-        self._last_token_cookie = cookie[cookie_name]
-        self._last_token_cookie_decode = None
-        self._is_authenticated = True
-        self.set_header("cookie", cookie_value)
-        if session.get("csrf"):
-            self.set_header("x-csrf-token", session["csrf"])
-        return cookie
-
-    def is_authenticated(self) -> bool:
-        """Check to see if we are already authenticated."""
-        if self._session is None:
-            return False
-
-        if self._is_authenticated is False:
-            return False
-
-        if self._last_token_cookie is None:
-            return False
-
-        # Lazy decode the token cookie
-        if self._last_token_cookie and self._last_token_cookie_decode is None:
-            self._last_token_cookie_decode = decode_token_cookie(
-                self._last_token_cookie,
-            )
-
-        if (
-            self._last_token_cookie_decode is None
-            or "exp" not in self._last_token_cookie_decode
-        ):
-            return False
-
-        token_expires_at = cast(int, self._last_token_cookie_decode["exp"])
-        max_expire_time = time.time() + TOKEN_COOKIE_MAX_EXP_SECONDS
-
-        return token_expires_at >= max_expire_time
 
     async def async_connect_ws(self, force: bool) -> None:
         """Connect to Websocket."""
@@ -703,13 +405,15 @@ class ProtectApiClient(BaseApiClient):
         debug: Use full type validation (default: false)
     """
 
+    _host: str
     _minimum_score: int
     _subscribed_models: set[ModelType]
     _ignore_stats: bool
     _ws_subscriptions: list[Callable[[WSSubscriptionMessage], None]]
+    _connection_host: IPv4Address | IPv6Address | str | None = None
+
     _bootstrap: Optional[Bootstrap] = None
     _last_update_dt: Optional[datetime] = None
-    _connection_host: Optional[Union[IPv4Address, IPv6Address, str]] = None
 
     ignore_unadopted: bool
 
@@ -723,7 +427,6 @@ class ProtectApiClient(BaseApiClient):
         session: Optional[aiohttp.ClientSession] = None,
         ws_timeout: int = 30,
         cache_dir: Optional[Path] = None,
-        config_dir: Optional[Path] = None,
         store_sessions: bool = True,
         override_connection_host: bool = False,
         minimum_score: int = 0,
@@ -741,10 +444,10 @@ class ProtectApiClient(BaseApiClient):
             session=session,
             ws_timeout=ws_timeout,
             cache_dir=cache_dir,
-            config_dir=config_dir,
             store_sessions=store_sessions,
         )
 
+        self._host = host
         self._minimum_score = minimum_score
         self._subscribed_models = subscribed_models or set()
         self._ignore_stats = ignore_stats
@@ -752,7 +455,7 @@ class ProtectApiClient(BaseApiClient):
         self.ignore_unadopted = ignore_unadopted
 
         if override_connection_host:
-            self._connection_host = ip_from_host(self._host)
+            self._connection_host = ip_from_host(host)
 
         if debug:
             set_debug()
@@ -768,23 +471,34 @@ class ProtectApiClient(BaseApiClient):
 
         return self._bootstrap
 
+    def _update_connection_host(self) -> None:
+
+        index = 0
+        try:
+            # check if user supplied host is available
+            index = self.bootstrap.nvr.hosts.index(self._host)
+        except ValueError:
+            # check if IP of user supplied host is available
+            ip_address = ip_from_host(self._host)
+            with contextlib.suppress(ValueError):
+                index = self.bootstrap.nvr.hosts.index(ip_address)
+
+        self._connection_host = self.bootstrap.nvr.hosts[index]
+
+    def set_url(self, host: str, port: int) -> None:
+        """Set base URL."""
+
+        self._os.set_url(host, port)
+        self._host = host
+        self._update_connection_host()
+
     @property
     def connection_host(self) -> Union[IPv4Address, IPv6Address, str]:
         """Connection host to use for generating RTSP URLs"""
 
         if self._connection_host is None:
-            # fallback if cannot find user supplied host
-            index = 0
-            try:
-                # check if user supplied host is avaiable
-                index = self.bootstrap.nvr.hosts.index(self._host)
-            except ValueError:
-                # check if IP of user supplied host is avaiable
-                host = ip_from_host(self._host)
-                with contextlib.suppress(ValueError):
-                    index = self.bootstrap.nvr.hosts.index(host)
-
-            self._connection_host = self.bootstrap.nvr.hosts[index]
+            self._update_connection_host()
+            assert self._connection_host is not None
 
         return self._connection_host
 
@@ -1493,7 +1207,7 @@ class ProtectApiClient(BaseApiClient):
                 raise_exception=False,
             )
 
-        r = await self.request(
+        r = await self._os.request(
             "get",
             urljoin(self.api_path, path),
             auto_close=False,
