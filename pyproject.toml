@@ -20,13 +20,12 @@ maintainers = [
     {name="Christopher Bailey", email="cbailey@mort.is"},
     {name="J. Nick Koston", email="nick@koston.org"},
 ]
-license = {text="MIT"}
+license = {file = "LICENSE"}
 keywords = ["UniFiProtect", "UniFi Protect", "Surveilance", "UniFi", "Home Assistant", "Python"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Build Tools",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
