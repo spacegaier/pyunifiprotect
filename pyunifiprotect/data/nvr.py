@@ -158,6 +158,7 @@ class EventDetectedThumbnail(ProtectBaseObject):
     cropped_id: str
     attributes: Optional[EventThumbnailAttributes] = None
     name: Optional[str]
+    object_id: Optional[str] = None
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -757,11 +758,18 @@ class DoorbellMessage(ProtectBaseObject):
     text: DoorbellText
 
 
+class CustomImage(ProtectBaseObject):
+    sprite: str
+    preview: str
+
+
 class DoorbellSettings(ProtectBaseObject):
     default_message_text: DoorbellText
     default_message_reset_timeout: timedelta
     all_messages: list[DoorbellMessage]
     custom_messages: list[DoorbellText]
+    # 4.0.7+
+    custom_images: Optional[list[CustomImage]] = None
 
     @classmethod
     @cache
@@ -975,6 +983,9 @@ class NVR(ProtectDeviceModel):
     smart_detection: Optional[NVRSmartDetection] = None
     is_ucore_stacked: Optional[bool] = None
     global_camera_settings: Optional[GlobalRecordingSettings] = None
+    # requires 4.0.7+
+    timelapse_enabled: Optional[bool] = None
+    console_env: Optional[str] = None
 
     # TODO:
     # errorCode   read only
@@ -984,6 +995,7 @@ class NVR(ProtectDeviceModel):
     # portStatus
     # cameraCapacity
     # deviceFirmwareSettings
+    # agreements
 
     @classmethod
     @cache
@@ -1051,7 +1063,7 @@ class NVR(ProtectDeviceModel):
         return f"{self.api.base_url}/protect/devices/{self.api.bootstrap.nvr.id}"
 
     @property
-    def display_name(self) -> str:
+    def device_name(self) -> str:
         return self.name or self.market_name or self.type
 
     @property

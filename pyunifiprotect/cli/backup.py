@@ -171,10 +171,10 @@ class Event(Base):
             length = timedelta(seconds=0)
             if camera is not None:
                 camera_slug = (
-                    camera.display_name.lower().replace(" ", ctx.seperator)
+                    camera.device_name.lower().replace(" ", ctx.seperator)
                     + ctx.seperator
                 )
-                display_name = camera.display_name
+                display_name = camera.device_name
             if self.end is not None:
                 length = self.end - self.start
 

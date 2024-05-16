@@ -817,6 +817,8 @@ class ProtectDeviceModel(ProtectModelWithId):
     firmware_version: Optional[str]
     is_updating: bool
     is_ssh_enabled: bool
+    # 4.0.7+
+    display_name: Optional[str] = None
 
     _callback_ping: Optional[TimerHandle] = PrivateAttr(None)
 
@@ -993,8 +995,8 @@ class ProtectAdoptableDeviceModel(ProtectDeviceModel):
         return super().unifi_dict_to_dict(data)
 
     @property
-    def display_name(self) -> str:
-        return self.name or self.market_name or self.type
+    def device_name(self) -> str:
+        return self.display_name or self.name or self.market_name or self.type
 
     @property
     def is_wired(self) -> bool:

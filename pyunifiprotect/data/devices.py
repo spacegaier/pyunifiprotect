@@ -465,11 +465,18 @@ class RecordingSettings(ProtectBaseObject):
         return data
 
 
+class DetectionRange(ProtectBaseObject):
+    max: Optional[Any]
+    min: Optional[Any]
+
+
 class SmartDetectSettings(ProtectBaseObject):
     object_types: list[SmartDetectObjectType]
     audio_types: Optional[list[SmartDetectAudioType]] = None
     # requires 2.8.22+
     auto_tracking_object_types: Optional[list[SmartDetectObjectType]] = None
+    # requires 4.0.7+
+    detection_range: Optional[DetectionRange] = None
 
     @classmethod
     def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
@@ -720,6 +727,9 @@ class HotplugExtender(ProtectBaseObject):
     is_attached: Optional[bool] = None
     # 3.0.22+
     flash_range: Optional[Any] = None
+    # 4.0.7+
+    radar_range_max: Optional[Any] = None
+    radar_range_min: Optional[Any] = None
 
     @classmethod
     @cache
@@ -851,6 +861,12 @@ class CameraFeatureFlags(ProtectBaseObject):
     has_vertical_flip: Optional[bool] = None
     # 3.0.22+
     flash_range: Optional[Any] = None
+    # 4.0.7+
+    video_codecs: Optional[list[str]] = None
+    support_door_access_config: Optional[bool] = None
+    preset_tour: Optional[bool] = None
+    max_scale_down_level: Optional[Any] = None
+    has_lux_check: Optional[bool] = None
 
     focus: PTZRange
     pan: PTZRange
@@ -965,6 +981,13 @@ class Camera(ProtectMotionDeviceModel):
     is_ptz: Optional[bool] = None
     # requires 2.11.13+
     audio_settings: Optional[CameraAudioSettings] = None
+    # requires 4.0.7+
+    video_codec: Optional[str] = None
+    video_codec_state: Optional[int] = None
+    is_extender_installed_ever: Optional[bool] = None
+    current_resolution: Optional[str] = None
+    down_scale_mode: Optional[int] = None
+    active_patrol_slot: Optional[Any] = None
 
     # TODO: used for adopting
     # apMac read only
@@ -978,6 +1001,10 @@ class Camera(ProtectMotionDeviceModel):
     # stopStreamLevel
     # uplinkDevice
     # recordingSchedulesV2
+    # supportedScalingResolutions
+    # shortcuts
+    # hubMac
+    # alarms
 
     # not directly from UniFi
     last_ring_event_id: Optional[str] = None
@@ -3384,6 +3411,9 @@ class Chime(ProtectAdoptableDeviceModel):
     track_no: Optional[int] = None
     ring_settings: list[RingSetting] = []
     speaker_track_list: list[ChimeTrack] = []
+    # requires 4.0.7+
+    uplink_device: Optional[Any] = None
+    has_wifi: Optional[bool] = None
 
     # TODO: used for adoption
     # apMac  read only

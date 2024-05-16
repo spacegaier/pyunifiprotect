@@ -710,6 +710,19 @@ NEW_FIELDS = {
     "trackNo",
     "hasHttpsClientOTA",
     "isUCoreStacked",
+    # 4.0.7
+    "timelapseEnabled",
+    "consoleEnv",
+    "displayName",
+    "videoCodec",
+    "videoCodecState",
+    "isExtenderInstalledEver",
+    "currentResolution",
+    "downScaleMode",
+    "activePatrolSlot",
+    "alarms",
+    "uplinkDevice",
+    "hasWifi",
 }
 
 NEW_CAMERA_FEATURE_FLAGS = {
@@ -736,6 +749,12 @@ NEW_CAMERA_FEATURE_FLAGS = {
     "hasVerticalFlip",
     # 3.0.22+
     "flashRange",
+    # 4.0.7+
+    "videoCodecs",
+    "supportDoorAccessConfig",
+    "presetTour",
+    "maxScaleDownLevel",
+    "hasLuxCheck",
 }
 
 NEW_ISP_SETTINGS = {
@@ -779,6 +798,10 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915,PLR0914
         expected.pop("stopStreamLevel", None)
         expected.pop("uplinkDevice", None)
         expected.pop("recordingSchedulesV2", None)
+        expected.pop("supportedScalingResolutions", None)
+        expected.pop("shortcuts", None)
+        expected.pop("hubMac", None)
+        expected.pop("alarms", None)
         expected["stats"].pop("battery", None)
         expected["recordingSettings"].pop("enablePirTimelapse", None)
         expected["featureFlags"].pop("hasBattery", None)
@@ -794,16 +817,10 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915,PLR0914
         if "isColorNightVisionEnabled" not in expected["ispSettings"]:
             actual["ispSettings"].pop("isColorNightVisionEnabled", None)
 
-        if (
-            "audioTypes" in actual["smartDetectSettings"]
-            and "audioTypes" not in expected["smartDetectSettings"]
-        ):
-            del actual["smartDetectSettings"]["audioTypes"]
-        if (
-            "autoTrackingObjectTypes" in actual["smartDetectSettings"]
-            and "autoTrackingObjectTypes" not in expected["smartDetectSettings"]
-        ):
-            del actual["smartDetectSettings"]["autoTrackingObjectTypes"]
+        smart = expected["smartDetectSettings"]
+        smart["audioTypes"] = smart.get("audioTypes")
+        smart["autoTrackingObjectTypes"] = smart.get("autoTrackingObjectTypes")
+        smart["detectionRange"] = smart.get("detectionRange")
 
         exp_settings = expected["recordingSettings"]
         act_settings = actual["recordingSettings"]
@@ -847,6 +864,7 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915,PLR0914
         del expected["alertRules"]
         del expected["notificationsV2"]
         expected.pop("notifications", None)
+        expected.pop("notificationSnoozeSettings", None)
         # lastLoginIp/lastLoginTime is not always present
         if "lastLoginIp" not in expected:
             actual.pop("lastLoginIp", None)
@@ -869,6 +887,7 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915,PLR0914
                 del act_thumbnails[index]["attributes"]
             if "clockBestWall" not in exp_thumb:
                 del act_thumbnails[index]["clockBestWall"]
+            exp_thumb["objectId"] = exp_thumb.get("objectId")
         assert exp_thumbnails == act_thumbnails
 
         expected_keys = (expected.get("metadata") or {}).keys()
@@ -893,6 +912,7 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915,PLR0914
         expected.pop("portStatus", None)
         expected.pop("cameraCapacity", None)
         expected.pop("deviceFirmwareSettings", None)
+        expected.pop("agreements", None)
         # removed fields
         expected["ports"].pop("cameraTcp", None)
 
@@ -902,12 +922,18 @@ def compare_objs(obj_type, expected, actual):  # noqa: PLR0915,PLR0914
         expected["ports"]["aiFeatureConsole"] = expected["ports"].get(
             "aiFeatureConsole",
         )
+        expected["doorbellSettings"]["customImages"] = expected["doorbellSettings"].get(
+            "customImages",
+        )
         expected["globalCameraSettings"] = expected.get("globalCameraSettings")
         if expected["globalCameraSettings"]:
             settings = expected["globalCameraSettings"]["recordingSettings"]
             settings["retentionDurationMs"] = settings.get(
                 "retentionDurationMs",
             )
+
+            smart = expected["globalCameraSettings"]["smartDetectSettings"]
+            smart["detectionRange"] = smart.get("detectionRange")
 
             # TODO:
             expected["globalCameraSettings"].pop("recordingSchedulesV2", None)

@@ -139,6 +139,7 @@ class User(ProtectModelWithId):
     # notificationsV2
     # notifications
     # cloudProviders
+    # notificationSnoozeSettings
 
     _groups: Optional[list[Group]] = PrivateAttr(None)
     _perm_cache: dict[str, bool] = PrivateAttr({})
