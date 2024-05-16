@@ -15,7 +15,6 @@ import zoneinfo
 import aiofiles
 from aiofiles import os as aos
 import orjson
-from pydantic.v1.fields import PrivateAttr
 
 from pyunifiprotect.data.base import (
     ProtectBaseObject,
@@ -56,10 +55,11 @@ from pyunifiprotect.data.types import (
 )
 from pyunifiprotect.data.user import User, UserLocation
 from pyunifiprotect.exceptions import BadRequest, NotAuthorized
+from pyunifiprotect.pydantic_compat import PrivateAttr
 from pyunifiprotect.utils import RELEASE_CACHE, process_datetime
 
 if TYPE_CHECKING:
-    from pydantic.v1.typing import SetStr
+    from pyunifiprotect.pydantic_compat import SetStr
 
 
 _LOGGER = logging.getLogger(__name__)

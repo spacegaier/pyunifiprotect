@@ -6,7 +6,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from unittest.mock import Mock, patch
 
-from pydantic.v1 import ValidationError
 import pytest
 
 from pyunifiprotect.data import (
@@ -23,6 +22,7 @@ from pyunifiprotect.data.devices import CameraZone, Hotplug, HotplugExtender
 from pyunifiprotect.data.types import DEFAULT, SmartDetectObjectType
 from pyunifiprotect.data.websocket import WSAction, WSSubscriptionMessage
 from pyunifiprotect.exceptions import BadRequest
+from pyunifiprotect.pydantic_compat import ValidationError
 from pyunifiprotect.utils import to_js_time
 from tests.conftest import TEST_CAMERA_EXISTS
 

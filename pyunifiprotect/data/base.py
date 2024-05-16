@@ -11,9 +11,6 @@ import logging
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, TypeVar, Union
 from uuid import UUID
 
-from pydantic.v1 import BaseModel
-from pydantic.v1.fields import SHAPE_DICT, SHAPE_LIST, PrivateAttr
-
 from pyunifiprotect.data.types import (
     ModelType,
     PercentFloat,
@@ -27,6 +24,12 @@ from pyunifiprotect.data.websocket import (
     WSPacketFrameHeader,
 )
 from pyunifiprotect.exceptions import BadRequest, ClientError, NotAuthorized
+from pyunifiprotect.pydantic_compat import (
+    SHAPE_DICT,
+    SHAPE_LIST,
+    BaseModel,
+    PrivateAttr,
+)
 from pyunifiprotect.utils import (
     asyncio_timeout,
     convert_unifi_data,
@@ -40,13 +43,13 @@ from pyunifiprotect.utils import (
 if TYPE_CHECKING:
     from asyncio.events import TimerHandle
 
-    from pydantic.v1.typing import DictStrAny, SetStr
     from typing_extensions import Self  # requires Python 3.11+
 
     from pyunifiprotect.api import ProtectApiClient
     from pyunifiprotect.data.devices import Bridge
     from pyunifiprotect.data.nvr import Event
     from pyunifiprotect.data.user import User
+    from pyunifiprotect.pydantic_compat import DictStrAny, SetStr
 
 
 ProtectObject = TypeVar("ProtectObject", bound="ProtectBaseObject")
@@ -190,7 +193,7 @@ class ProtectBaseObject(BaseModel):
                 to_key: from_key for from_key, to_key in cls._get_unifi_remaps().items()
             }
 
-        return cls._to_unifi_remaps
+        return cls._to_unifi_remaps  # type: ignore[no-any-return]
 
     @classmethod
     def _set_protect_subtypes(cls) -> None:
@@ -227,7 +230,7 @@ class ProtectBaseObject(BaseModel):
         if cls._protect_objs_set is None:
             cls._protect_objs_set = set(cls._get_protect_objs().keys())
 
-        return cls._protect_objs_set
+        return cls._protect_objs_set  # type: ignore[no-any-return]
 
     @classmethod
     def _get_protect_lists(cls) -> dict[str, type[ProtectBaseObject]]:
@@ -244,7 +247,7 @@ class ProtectBaseObject(BaseModel):
         if cls._protect_lists_set is None:
             cls._protect_lists_set = set(cls._get_protect_lists().keys())
 
-        return cls._protect_lists_set
+        return cls._protect_lists_set  # type: ignore[no-any-return]
 
     @classmethod
     def _get_protect_dicts(cls) -> dict[str, type[ProtectBaseObject]]:
@@ -261,7 +264,7 @@ class ProtectBaseObject(BaseModel):
         if cls._protect_dicts_set is None:
             cls._protect_dicts_set = set(cls._get_protect_dicts().keys())
 
-        return cls._protect_dicts_set
+        return cls._protect_dicts_set  # type: ignore[no-any-return]
 
     @classmethod
     def _get_api(cls, api: Optional[ProtectApiClient]) -> Optional[ProtectApiClient]:

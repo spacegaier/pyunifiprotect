@@ -12,8 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 import warnings
 
-from pydantic.v1.fields import PrivateAttr
-
 from pyunifiprotect.data.base import (
     EVENT_PING_INTERVAL,
     ProtectAdoptableDeviceModel,
@@ -64,6 +62,7 @@ from pyunifiprotect.data.types import (
 )
 from pyunifiprotect.data.user import User
 from pyunifiprotect.exceptions import BadRequest, NotAuthorized, StreamError
+from pyunifiprotect.pydantic_compat import PrivateAttr
 from pyunifiprotect.stream import TalkbackStream
 from pyunifiprotect.utils import (
     clamp_value,

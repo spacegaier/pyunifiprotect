@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import timedelta
 from ipaddress import IPv4Address, IPv6Address
 
-from pydantic.v1 import ValidationError
 import pytest
 
 from pyunifiprotect.data import (
@@ -16,6 +15,7 @@ from pyunifiprotect.data import (
 )
 from pyunifiprotect.data.nvr import NVRSmartDetection
 from pyunifiprotect.exceptions import BadRequest
+from pyunifiprotect.pydantic_compat import ValidationError
 from pyunifiprotect.utils import to_ms
 
 

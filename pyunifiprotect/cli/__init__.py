@@ -317,4 +317,5 @@ def release_versions(ctx: typer.Context) -> None:
     output = orjson.dumps(sorted([str(v) for v in versions]))
 
     Path(RELEASE_CACHE).write_bytes(output)
+
     typer.echo(output.decode("utf-8"))

@@ -42,7 +42,7 @@ dependencies = [
     "packaging",
     "pillow",
     "platformdirs",
-    "pydantic>=1.10.15",
+    "pydantic!=1.9.1",
     "pyjwt",
     "typer[all]>0.6",
     "yarl>=1.9",

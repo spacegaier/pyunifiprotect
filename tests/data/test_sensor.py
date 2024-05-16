@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pydantic.v1 import ValidationError
 import pytest
 
 from pyunifiprotect.data.types import MountType
 from pyunifiprotect.exceptions import BadRequest
+from pyunifiprotect.pydantic_compat import ValidationError
 from tests.conftest import TEST_CAMERA_EXISTS, TEST_SENSOR_EXISTS
 
 if TYPE_CHECKING:

@@ -3,10 +3,9 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from pydantic.v1.config import BaseConfig
-from pydantic.v1.fields import ModelField
 import pytest
 
+from pyunifiprotect.pydantic_compat import BaseConfig, ModelField
 from pyunifiprotect.utils import convert_unifi_data, dict_diff, to_snake_case
 
 

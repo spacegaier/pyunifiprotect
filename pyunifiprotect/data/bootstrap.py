@@ -11,7 +11,6 @@ from typing import Any, Optional, cast
 from uuid import UUID
 
 from aiohttp.client_exceptions import ServerDisconnectedError
-from pydantic.v1 import PrivateAttr, ValidationError
 
 from pyunifiprotect.data.base import (
     RECENT_EVENT_MAX,
@@ -40,6 +39,7 @@ from pyunifiprotect.data.websocket import (
     WSSubscriptionMessage,
 )
 from pyunifiprotect.exceptions import ClientError
+from pyunifiprotect.pydantic_compat import PrivateAttr, ValidationError
 from pyunifiprotect.utils import utc_now
 
 _LOGGER = logging.getLogger(__name__)

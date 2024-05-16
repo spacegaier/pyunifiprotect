@@ -6,10 +6,9 @@ from datetime import datetime
 from functools import cache
 from typing import Any, Optional
 
-from pydantic.v1.fields import PrivateAttr
-
 from pyunifiprotect.data.base import ProtectBaseObject, ProtectModel, ProtectModelWithId
 from pyunifiprotect.data.types import ModelType, PermissionNode
+from pyunifiprotect.pydantic_compat import PrivateAttr
 
 
 class Permission(ProtectBaseObject):

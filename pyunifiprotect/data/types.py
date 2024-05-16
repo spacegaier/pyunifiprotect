@@ -5,9 +5,14 @@ import enum
 from typing import Any, Literal, Optional, TypeVar, Union
 
 from packaging.version import Version as BaseVersion
-from pydantic.v1 import BaseModel, ConstrainedInt
-from pydantic.v1.color import Color as BaseColor
-from pydantic.v1.types import ConstrainedFloat, ConstrainedStr
+
+from pyunifiprotect.pydantic_compat import BaseModel
+from pyunifiprotect.pydantic_compat import Color as BaseColor
+from pyunifiprotect.pydantic_compat import (
+    ConstrainedFloat,
+    ConstrainedInt,
+    ConstrainedStr,
+)
 
 KT = TypeVar("KT")
 VT = TypeVar("VT")
