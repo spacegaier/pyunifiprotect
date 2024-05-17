@@ -710,7 +710,7 @@ NEW_FIELDS = {
     "trackNo",
     "hasHttpsClientOTA",
     "isUCoreStacked",
-    # 4.0.7
+    # 4.0.19
     "timelapseEnabled",
     "consoleEnv",
     "displayName",
@@ -723,6 +723,7 @@ NEW_FIELDS = {
     "alarms",
     "uplinkDevice",
     "hasWifi",
+    "tiltLimitsOfPrivacyZones",
 }
 
 NEW_CAMERA_FEATURE_FLAGS = {

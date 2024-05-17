@@ -919,6 +919,11 @@ class CameraAudioSettings(ProtectBaseObject):
     style: list[AudioStyle]
 
 
+class CameraTiltLimits(ProtectBaseObject):
+    limit: int
+    side: str
+
+
 class Camera(ProtectMotionDeviceModel):
     is_deleting: bool
     # Microphone Sensitivity
@@ -980,13 +985,14 @@ class Camera(ProtectMotionDeviceModel):
     is_ptz: Optional[bool] = None
     # requires 2.11.13+
     audio_settings: Optional[CameraAudioSettings] = None
-    # requires 4.0.7+
+    # requires 4.0.19+
     video_codec: Optional[str] = None
     video_codec_state: Optional[int] = None
     is_extender_installed_ever: Optional[bool] = None
     current_resolution: Optional[str] = None
     down_scale_mode: Optional[int] = None
     active_patrol_slot: Optional[Any] = None
+    tilt_limits_of_privacy_zones: Optional[CameraTiltLimits] = None
 
     # TODO: used for adopting
     # apMac read only
