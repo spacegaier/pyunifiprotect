@@ -1237,16 +1237,7 @@ class Camera(ProtectMotionDeviceModel):
         motion/smart detection events.
         """
 
-        if self.use_global:
-            return self.api.bootstrap.nvr.is_global_recording_enabled
-
         return self.recording_settings.mode is not RecordingMode.NEVER
-
-    @property
-    def can_manage_recording_setting(self) -> bool:
-        """Can this camera manage its own recording settings?"""
-
-        return not self.use_global
 
     @property
     def is_smart_detections_allowed(self) -> bool:
@@ -1258,12 +1249,6 @@ class Camera(ProtectMotionDeviceModel):
         )
 
     @property
-    def can_manage_smart_detections(self) -> bool:
-        """Can this camera manage its own recording settings?"""
-
-        return (not self.use_global) and self.is_smart_detections_allowed
-
-    @property
     def is_license_plate_detections_allowed(self) -> bool:
         """Is license plate detections allowed for this camera?"""
 
@@ -1271,12 +1256,6 @@ class Camera(ProtectMotionDeviceModel):
             self.is_recording_enabled
             and self.api.bootstrap.nvr.is_license_plate_detections_enabled
         )
-
-    @property
-    def can_manage_license_plate_detections(self) -> bool:
-        """Can this camera manage its own license plate settings?"""
-
-        return (not self.use_global) and self.is_license_plate_detections_allowed
 
     @property
     def is_face_detections_allowed(self) -> bool:
@@ -1288,17 +1267,8 @@ class Camera(ProtectMotionDeviceModel):
         )
 
     @property
-    def can_manage_face_detections(self) -> bool:
-        """Can this camera manage its own face detection settings?"""
-
-        return (not self.use_global) and self.is_face_detections_allowed
-
-    @property
     def active_recording_settings(self) -> RecordingSettings:
         """Get active recording settings."""
-
-        if self.use_global and self.api.bootstrap.nvr.global_camera_settings:
-            return self.api.bootstrap.nvr.global_camera_settings.recording_settings
 
         return self.recording_settings
 
@@ -1306,30 +1276,17 @@ class Camera(ProtectMotionDeviceModel):
     def active_smart_detect_settings(self) -> SmartDetectSettings:
         """Get active smart detection settings."""
 
-        if self.use_global and self.api.bootstrap.nvr.global_camera_settings:
-            return self.api.bootstrap.nvr.global_camera_settings.smart_detect_settings
-
         return self.smart_detect_settings
 
     @property
     def active_smart_detect_types(self) -> set[SmartDetectObjectType]:
         """Get active smart detection types."""
 
-        if self.use_global:
-            return set(self.smart_detect_settings.object_types).intersection(
-                set(self.feature_flags.smart_detect_types),
-            )
-
         return set(self.smart_detect_settings.object_types)
 
     @property
     def active_audio_detect_types(self) -> set[SmartDetectAudioType]:
         """Get active audio detection types."""
-
-        if self.use_global:
-            return set(self.smart_detect_settings.audio_types or []).intersection(
-                set(self.feature_flags.smart_detect_audio_types or []),
-            )
 
         return set(self.smart_detect_settings.audio_types or [])
 
@@ -1340,7 +1297,6 @@ class Camera(ProtectMotionDeviceModel):
         return (
             self.is_recording_enabled
             and self.active_recording_settings.enable_motion_detection is not False
-            and self.can_manage_recording_setting
         )
 
     @property
@@ -1357,19 +1313,8 @@ class Camera(ProtectMotionDeviceModel):
     async def set_motion_detection(self, enabled: bool) -> None:
         """Sets motion detection on camera"""
 
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
         def callback() -> None:
             self.recording_settings.enable_motion_detection = enabled
-
-        await self.queue_update(callback)
-
-    async def set_use_global(self, enabled: bool) -> None:
-        """Sets if camera should use global recording settings or not."""
-
-        def callback() -> None:
-            self.use_global = enabled
 
         await self.queue_update(callback)
 
@@ -1377,9 +1322,7 @@ class Camera(ProtectMotionDeviceModel):
 
     def _is_smart_enabled(self, smart_type: SmartDetectObjectType) -> bool:
         return (
-            self.is_recording_enabled
-            and smart_type in self.active_smart_detect_types
-            and self.can_manage_smart_detections
+            self.is_recording_enabled and smart_type in self.active_smart_detect_types
         )
 
     def _is_smart_detected(self, smart_type: SmartDetectObjectType) -> bool:
@@ -1628,7 +1571,6 @@ class Camera(ProtectMotionDeviceModel):
             audio_type is not None
             and self.is_recording_enabled
             and audio_type in self.active_audio_detect_types
-            and self.can_manage_smart_detections
         )
 
     def _is_audio_detected(self, smart_type: SmartDetectObjectType) -> bool:
@@ -2219,10 +2161,8 @@ class Camera(ProtectMotionDeviceModel):
     async def set_recording_mode(self, mode: RecordingMode) -> None:
         """Sets recording mode on camera"""
 
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
         def callback() -> None:
+            self.use_global = False
             self.recording_settings.mode = mode
 
         await self.queue_update(callback)
@@ -2419,10 +2359,8 @@ class Camera(ProtectMotionDeviceModel):
     async def set_osd_name(self, enabled: bool) -> None:
         """Sets whether camera name is in the On Screen Display"""
 
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
         def callback() -> None:
+            self.use_global = False
             self.osd_settings.is_name_enabled = enabled
 
         await self.queue_update(callback)
@@ -2430,10 +2368,8 @@ class Camera(ProtectMotionDeviceModel):
     async def set_osd_date(self, enabled: bool) -> None:
         """Sets whether current date is in the On Screen Display"""
 
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
         def callback() -> None:
+            self.use_global = False
             self.osd_settings.is_date_enabled = enabled
 
         await self.queue_update(callback)
@@ -2441,10 +2377,8 @@ class Camera(ProtectMotionDeviceModel):
     async def set_osd_logo(self, enabled: bool) -> None:
         """Sets whether the UniFi logo is in the On Screen Display"""
 
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
         def callback() -> None:
+            self.use_global = False
             self.osd_settings.is_logo_enabled = enabled
 
         await self.queue_update(callback)
@@ -2452,11 +2386,9 @@ class Camera(ProtectMotionDeviceModel):
     async def set_osd_bitrate(self, enabled: bool) -> None:
         """Sets whether camera bitrate is in the On Screen Display"""
 
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
         def callback() -> None:
             # mismatch between UI internal data structure debug = bitrate data
+            self.use_global = False
             self.osd_settings.is_debug_enabled = enabled
 
         await self.queue_update(callback)
@@ -2467,10 +2399,8 @@ class Camera(ProtectMotionDeviceModel):
         if not self.feature_flags.has_smart_detect:
             raise BadRequest("Camera does not have a smart detections")
 
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
         def callback() -> None:
+            self.use_global = False
             self.smart_detect_settings.object_types = types
 
         await self.queue_update(callback)
@@ -2484,10 +2414,8 @@ class Camera(ProtectMotionDeviceModel):
         if not self.feature_flags.has_smart_detect:
             raise BadRequest("Camera does not have a smart detections")
 
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
         def callback() -> None:
+            self.use_global = False
             self.smart_detect_settings.audio_types = types
 
         await self.queue_update(callback)
@@ -2500,10 +2428,8 @@ class Camera(ProtectMotionDeviceModel):
         if obj_to_mod not in self.feature_flags.smart_detect_types:
             raise BadRequest(f"Camera does not support the {obj_to_mod} detection type")
 
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
         def callback() -> None:
+            self.use_global = False
             objects = self.smart_detect_settings.object_types
             if enabled:
                 if obj_to_mod not in objects:
@@ -2526,10 +2452,8 @@ class Camera(ProtectMotionDeviceModel):
         ):
             raise BadRequest(f"Camera does not support the {obj_to_mod} detection type")
 
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
         def callback() -> None:
+            self.use_global = False
             objects = self.smart_detect_settings.audio_types or []
             if enabled:
                 if obj_to_mod not in objects:
@@ -2589,7 +2513,6 @@ class Camera(ProtectMotionDeviceModel):
         enabled: bool,
         mic_level: Optional[int] = None,
         recording_mode: Optional[RecordingMode] = None,
-        reenable_global: bool = False,
     ) -> None:
         """Adds/removes a privacy zone that blacks out the whole camera."""
 
@@ -2597,20 +2520,17 @@ class Camera(ProtectMotionDeviceModel):
             raise BadRequest("Camera does not allow privacy zones")
 
         def callback() -> None:
+            self.use_global = False
             if enabled:
-                self.use_global = False
                 self.add_privacy_zone()
             else:
-                if reenable_global:
-                    self.use_global = True
                 self.remove_privacy_zone()
 
-            if not reenable_global:
-                if mic_level is not None:
-                    self.mic_volume = PercentInt(mic_level)
+            if mic_level is not None:
+                self.mic_volume = PercentInt(mic_level)
 
-                if recording_mode is not None:
-                    self.recording_settings.mode = recording_mode
+            if recording_mode is not None:
+                self.recording_settings.mode = recording_mode
 
         await self.queue_update(callback)
 
@@ -2620,10 +2540,8 @@ class Camera(ProtectMotionDeviceModel):
         if not self.feature_flags.is_ptz:
             raise BadRequest("Camera does not support person tracking")
 
-        if self.use_global:
-            raise BadRequest("Camera is using global recording settings.")
-
         def callback() -> None:
+            self.use_global = False
             self.smart_detect_settings.auto_tracking_object_types = (
                 [SmartDetectObjectType.PERSON] if enabled else []
             )
