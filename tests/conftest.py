@@ -167,6 +167,17 @@ async def mock_api_request(url: str, *args, **kwargs):
                 "zoom": 0,
             },
         }
+    if url.endswith("ptz/patrol"):
+        return {
+            "id": "test-id",
+            "modelKey": "ptzPatrol",
+            "camera": "camera-id",
+            "name": "Test",
+            "slot": 0,
+            "presets": [0, 1],
+            "presetMovementSpeed": None,
+            "presetDurationSeconds": 10,
+        }
     if url.startswith("cameras/"):
         return read_camera_json_file()
     if url.startswith("lights/"):

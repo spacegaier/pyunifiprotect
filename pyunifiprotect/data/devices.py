@@ -17,6 +17,7 @@ from pyunifiprotect.data.base import (
     ProtectAdoptableDeviceModel,
     ProtectBaseObject,
     ProtectMotionDeviceModel,
+    PTZPatrol,
 )
 from pyunifiprotect.data.types import (
     DEFAULT,
@@ -2768,6 +2769,60 @@ class Camera(ProtectMotionDeviceModel):
             raise BadRequest("Camera does not support PTZ features.")
 
         return await self.api.set_home_ptz_camera(self.id)
+
+    async def create_ptz_patrol(
+        self,
+        *,
+        name: str,
+        preset_slots: list[int],
+        duration: int = 10,
+    ) -> PTZPatrol:
+        """Create PTZ Patrol.
+
+        Duration is how long camera waits at each preset in seconds. Must be between 10 and 60.
+        """
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        return await self.api.create_patrol_ptz_camera(
+            self.id,
+            name=name,
+            preset_slots=preset_slots,
+            duration=duration,
+        )
+
+    async def get_ptz_patrols(self) -> list[PTZPatrol]:
+        """Get PTZ Patrols."""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        return await self.api.get_patrols_ptz_camera(self.id)
+
+    async def delete_ptz_patrol(self, slot: int) -> None:
+        """Delete PTZ Patrol."""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        return await self.api.delete_patrol_ptz_camera(self.id, slot)
+
+    async def get_active_ptz_patrol(self) -> PTZPatrol | None:
+        """Get the current active PTZ Patrol."""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        return await self.api.get_active_ptz_patrol(self.id)
+
+    async def start_patrol_ptz_camera(self, slot: int) -> None:
+        """Start a PTZ Patrol."""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support PTZ features.")
+
+        await self.api.start_patrol_ptz_camera(self.id, slot)
 
     # endregion
 

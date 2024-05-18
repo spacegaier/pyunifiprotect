@@ -16,6 +16,7 @@ from pyunifiprotect.data.types import (
     PercentFloat,
     PermissionNode,
     ProtectWSPayloadFormat,
+    PTZPresetDuration,
     StateType,
 )
 from pyunifiprotect.data.websocket import (
@@ -46,7 +47,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self  # requires Python 3.11+
 
     from pyunifiprotect.api import ProtectApiClient
-    from pyunifiprotect.data.devices import Bridge
+    from pyunifiprotect.data.devices import Bridge, Camera
     from pyunifiprotect.data.nvr import Event
     from pyunifiprotect.data.user import User
     from pyunifiprotect.pydantic_compat import DictStrAny, SetStr
@@ -591,6 +592,30 @@ class ProtectModel(ProtectBaseObject):
             del data["modelKey"]
 
         return data
+
+
+class PTZPatrol(ProtectModel):
+    name: str
+    slot: int
+    presets: list[int]
+    preset_movement_speed: Optional[Any]
+    preset_duration_seconds: PTZPresetDuration
+    camera_id: str
+    id: str
+
+    @classmethod
+    @cache
+    def _get_unifi_remaps(cls) -> dict[str, str]:
+        return {**super()._get_unifi_remaps(), "camera": "cameraId"}
+
+    @property
+    def camera(self) -> Camera:
+        """Paired Camera will always be none if no camera is paired"""
+
+        if self.camera_id is None:
+            return None
+
+        return self.api.bootstrap.cameras[self.camera_id]
 
 
 class ProtectModelWithId(ProtectModel):

@@ -6,6 +6,7 @@ from pyunifiprotect.data.base import (
     ProtectDeviceModel,
     ProtectModel,
     ProtectModelWithId,
+    PTZPatrol,
 )
 from pyunifiprotect.data.bootstrap import Bootstrap
 from pyunifiprotect.data.convert import create_from_unifi_dict
@@ -58,6 +59,7 @@ from pyunifiprotect.data.types import (
     ProtectWSPayloadFormat,
     PTZPosition,
     PTZPreset,
+    PTZPresetDuration,
     RecordingMode,
     SensorStatusType,
     SensorType,
@@ -119,8 +121,10 @@ __all__ = [
     "ModelType",
     "MountType",
     "NVRLocation",
+    "PTZPatrol",
     "PTZPosition",
     "PTZPreset",
+    "PTZPresetDuration",
     "Percent",
     "Permission",
     "PermissionNode",

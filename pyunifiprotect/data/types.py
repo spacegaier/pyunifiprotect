@@ -96,6 +96,7 @@ class ModelType(str, UnknownValuesEnumMixin, enum.Enum):
     CHIME = "chime"
     DEVICE_GROUP = "deviceGroup"
     RECORDING_SCHEDULE = "recordingSchedule"
+    PTZ_PATROL = "ptzPatrol"
     UNKNOWN = "unknown"
 
     @staticmethod
@@ -616,6 +617,11 @@ class PTZPreset(BaseModel):
     name: str
     slot: int
     ptz: PTZPresetPosition
+
+
+class PTZPresetDuration(ConstrainedInt):
+    gte = 10
+    lte = 60
 
 
 CoordType = Union[Percent, int, float]

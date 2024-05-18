@@ -36,6 +36,7 @@ from pyunifiprotect.data import (
     ModelType,
     ProtectAdoptableDeviceModel,
     ProtectModel,
+    PTZPatrol,
     PTZPosition,
     PTZPreset,
     Sensor,
@@ -277,7 +278,7 @@ class BaseApiClient:
             **kwargs,
         )
 
-        if data is not None:
+        if data:
             json_data: Union[list[Any], dict[str, Any]] = orjson.loads(data)
             return json_data
         return None
@@ -1667,3 +1668,67 @@ class ProtectApiClient(BaseApiClient):
             method="post",
         )
         return PTZPreset(**preset)
+
+    async def create_patrol_ptz_camera(
+        self,
+        device_id: str,
+        *,
+        name: str,
+        preset_slots: list[int],
+        duration: int = 10,
+    ) -> PTZPatrol:
+        """Create PTZ Patrol.
+
+        Duration is how long camera waits at each preset in seconds. Must be between 10 and 60.
+        """
+
+        data = {
+            "name": name,
+            "presets": preset_slots,
+            "presetDurationSeconds": duration,
+        }
+
+        patrol = await self.api_request_obj(
+            f"cameras/{device_id}/ptz/patrol",
+            method="post",
+            json=data,
+        )
+
+        return PTZPatrol.from_unifi_dict(api=self, **patrol)
+
+    async def get_patrols_ptz_camera(self, device_id: str) -> list[PTZPatrol]:
+        """Get PTZ Patrols."""
+
+        patrols = await self.api_request_list(f"cameras/{device_id}/ptz/patrol")
+
+        return [PTZPatrol.from_unifi_dict(api=self, **p) for p in patrols]
+
+    async def delete_patrol_ptz_camera(self, device_id: str, slot: int) -> None:
+        """Delete PTZ Patrol."""
+
+        await self.api_request(
+            f"cameras/{device_id}/ptz/patrol/{slot}",
+            method="delete",
+        )
+
+    async def get_active_ptz_patrol(self, device_id: str) -> PTZPatrol | None:
+        """Get active PTZ Patrol."""
+
+        try:
+            patrol = await self.api_request_obj(
+                f"cameras/{device_id}/ptz/patrol/active",
+            )
+        except BadRequest as ex:
+            if "404" in ex.args[0]:
+                return None
+            raise
+
+        return PTZPatrol.from_unifi_dict(api=self, **patrol)
+
+    async def start_patrol_ptz_camera(self, device_id: str, slot: int) -> None:
+        """Start a PTZ Patrol."""
+
+        await self.api_request(
+            f"cameras/{device_id}/ptz/patrol/start/{slot}",
+            method="post",
+        )

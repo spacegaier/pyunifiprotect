@@ -14,6 +14,7 @@ from pyunifiprotect.data import (
     HDRMode,
     IRLEDMode,
     LCDMessage,
+    PTZPatrol,
     PTZPreset,
     RecordingMode,
     VideoMode,
@@ -1260,4 +1261,66 @@ async def test_camera_set_ptz_home(ptz_camera: Optional[Camera]):
         method="post",
         require_auth=True,
         raise_exception=True,
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_create_ptz_patrol(ptz_camera: Optional[Camera]):
+    if ptz_camera is None:
+        pytest.skip("No camera_obj obj found")
+
+    ptz_camera.api.api_request.reset_mock()
+
+    preset = await ptz_camera.create_ptz_patrol(name="Test", preset_slots=[0, 1])
+
+    assert preset == PTZPatrol(
+        id="test-id",
+        camera_id="camera-id",
+        model="ptzPatrol",
+        name="Test",
+        slot=0,
+        presets=[0, 1],
+        preset_movement_speed=None,
+        preset_duration_seconds=10,
+    )
+
+    ptz_camera.api.api_request.assert_called_with(
+        url=f"cameras/{ptz_camera.id}/ptz/patrol",
+        method="post",
+        require_auth=True,
+        raise_exception=True,
+        json={"name": "Test", "presets": [0, 1], "presetDurationSeconds": 10},
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_delete_ptz_patrol(ptz_camera: Optional[Camera]):
+    if ptz_camera is None:
+        pytest.skip("No camera_obj obj found")
+
+    ptz_camera.api.api_request.reset_mock()
+
+    await ptz_camera.delete_ptz_patrol(slot=0)
+
+    ptz_camera.api.api_request.assert_called_with(
+        f"cameras/{ptz_camera.id}/ptz/patrol/0",
+        method="delete",
+    )
+
+
+@pytest.mark.skipif(not TEST_CAMERA_EXISTS, reason="Missing testdata")
+@pytest.mark.asyncio()
+async def test_camera_start_ptz_patrol(ptz_camera: Optional[Camera]):
+    if ptz_camera is None:
+        pytest.skip("No camera_obj obj found")
+
+    ptz_camera.api.api_request.reset_mock()
+
+    await ptz_camera.start_patrol_ptz_camera(slot=0)
+
+    ptz_camera.api.api_request.assert_called_with(
+        f"cameras/{ptz_camera.id}/ptz/patrol/start/0",
+        method="post",
     )
