@@ -6,7 +6,6 @@ ufp-data
 .*
 *.xml
 Dockerfile
-LICENSE
 *.md
 !README.md
 tests/**
