@@ -24,6 +24,7 @@ from pyunifiprotect.data.base import (
 from pyunifiprotect.data.devices import (
     Camera,
     CameraZone,
+    LCDMessage,
     Light,
     OSDSettings,
     RecordingSettings,
@@ -59,6 +60,8 @@ from pyunifiprotect.pydantic_compat import PrivateAttr
 from pyunifiprotect.utils import RELEASE_CACHE, process_datetime
 
 if TYPE_CHECKING:
+    from typing_extensions import Self
+
     from pyunifiprotect.pydantic_compat import SetStr
 
 
@@ -771,6 +774,10 @@ class DoorbellSettings(ProtectBaseObject):
     # 4.0.7+
     custom_images: Optional[list[CustomImage]] = None
 
+    # internal
+    _doorbell_options: Optional[list[LCDMessage]] = PrivateAttr(None)
+    _image_doorbell_options: Optional[list[LCDMessage]] = PrivateAttr(None)
+
     @classmethod
     @cache
     def _get_unifi_remaps(cls) -> dict[str, str]:
@@ -787,6 +794,55 @@ class DoorbellSettings(ProtectBaseObject):
             )
 
         return super().unifi_dict_to_dict(data)
+
+    @property
+    def doorbell_options(self) -> list[LCDMessage]:
+        """Get list of saved doorbell options.
+
+        Does not include the default message (lcd_message=None)."""
+
+        if self._doorbell_options is not None:
+            return self._doorbell_options
+
+        self._doorbell_options = [
+            LCDMessage(
+                type=DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR,
+                text=DoorbellMessageType.LEAVE_PACKAGE_AT_DOOR.value,
+            ),
+            LCDMessage(
+                type=DoorbellMessageType.DO_NOT_DISTURB,
+                text=DoorbellMessageType.DO_NOT_DISTURB.value,
+            ),
+        ] + [
+            LCDMessage(type=DoorbellMessageType.CUSTOM_MESSAGE, text=m)
+            for m in self.custom_messages
+        ]
+
+        return self._doorbell_options
+
+    @property
+    def image_doorbell_options(self) -> list[LCDMessage]:
+        """Get list of saved doorbell options for doorbell that support images.
+
+        Does not include the default message (lcd_message=None)."""
+
+        if self._image_doorbell_options is None:
+            self.custom_images = self.custom_images or []
+            self._image_doorbell_options = self.doorbell_options + [
+                LCDMessage(type=DoorbellMessageType.IMAGE, text=i.sprite)
+                for i in self.custom_images
+            ]
+
+        return self._image_doorbell_options
+
+    def update_from_dict(self: Self, data: dict[str, Any]) -> Self:
+        """Updates current object from a cleaned UFP JSON dict"""
+
+        super(data)
+        self._doorbell_options = None
+        self._image_doorbell_options = None
+
+        return self
 
 
 class RecordingTypeDistribution(ProtectBaseObject):

@@ -2320,32 +2320,6 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_chime_type(self, chime_type: ChimeType) -> None:
-        """Sets chime type for doorbell. Requires camera to be a doorbell"""
-
-        await self.set_chime_duration(timedelta(milliseconds=chime_type.value))
-
-    async def set_chime_duration(self, duration: timedelta | float) -> None:
-        """Sets chime duration for doorbell. Requires camera to be a doorbell"""
-
-        if not self.feature_flags.has_chime:
-            raise BadRequest("Camera does not have a chime")
-
-        if isinstance(duration, (float, int)):
-            if duration < 0:
-                raise BadRequest("Chime duration must be a positive number of seconds")
-            duration_td = timedelta(seconds=duration)
-        else:
-            duration_td = duration
-
-        if duration_td.total_seconds() > 10:
-            raise BadRequest("Chime duration is too long")
-
-        def callback() -> None:
-            self.chime_duration = duration_td
-
-        await self.queue_update(callback)
-
     async def set_system_sounds(self, enabled: bool) -> None:
         """Sets system sound playback through speakers. Requires camera to have speakers"""
 
@@ -2466,49 +2440,6 @@ class Camera(ProtectMotionDeviceModel):
 
         await self.queue_update(callback)
 
-    async def set_lcd_text(
-        self,
-        text_type: Optional[DoorbellMessageType],
-        text: Optional[str] = None,
-        reset_at: Union[None, datetime, DEFAULT_TYPE] = None,
-    ) -> None:
-        """Sets doorbell LCD text. Requires camera to be doorbell"""
-
-        if not self.feature_flags.has_lcd_screen:
-            raise BadRequest("Camera does not have an LCD screen")
-
-        if text_type is None:
-            async with self._update_lock:
-                await asyncio.sleep(
-                    0,
-                )  # yield to the event loop once we have the lock to process any pending updates
-                data_before_changes = self.dict_with_excludes()
-                self.lcd_message = None
-                # UniFi Protect bug: clearing LCD text message does _not_ emit a WS message
-                await self.save_device(data_before_changes, force_emit=True)
-                return
-
-        if text_type != DoorbellMessageType.CUSTOM_MESSAGE:
-            if text is not None:
-                raise BadRequest("Can only set text if text_type is CUSTOM_MESSAGE")
-            text = text_type.value.replace("_", " ")
-
-        if reset_at == DEFAULT:
-            reset_at = (
-                utc_now()
-                + self.api.bootstrap.nvr.doorbell_settings.default_message_reset_timeout
-            )
-
-        def callback() -> None:
-            self.lcd_message = LCDMessage(  # type: ignore[call-arg]
-                api=self._api,
-                type=text_type,
-                text=text,  # type: ignore[arg-type]
-                reset_at=reset_at,  # type: ignore[arg-type]
-            )
-
-        await self.queue_update(callback)
-
     async def set_privacy(
         self,
         enabled: bool,
@@ -2532,20 +2463,6 @@ class Camera(ProtectMotionDeviceModel):
 
             if recording_mode is not None:
                 self.recording_settings.mode = recording_mode
-
-        await self.queue_update(callback)
-
-    async def set_person_track(self, enabled: bool) -> None:
-        """Sets person tracking on camera"""
-
-        if not self.feature_flags.is_ptz:
-            raise BadRequest("Camera does not support person tracking")
-
-        def callback() -> None:
-            self.use_global = False
-            self.smart_detect_settings.auto_tracking_object_types = (
-                [SmartDetectObjectType.PERSON] if enabled else []
-            )
 
         await self.queue_update(callback)
 
@@ -2633,7 +2550,107 @@ class Camera(ProtectMotionDeviceModel):
 
         return user.can(self.model, PermissionNode.DELETE_MEDIA, self)
 
+    # region Doorbell
+
+    @property
+    def doorbell_options(self) -> list[LCDMessage] | None:
+        """Get list of saved doorbell options.
+
+        Does not include the default message (lcd_message=None)."""
+
+        if not self.feature_flags.has_lcd_screen:
+            return None
+
+        if self.feature_flags.has_color_lcd_screen:
+            return self.api.bootstrap.nvr.doorbell_settings.image_doorbell_options
+        return self.api.bootstrap.nvr.doorbell_settings.doorbell_options
+
+    async def set_chime_type(self, chime_type: ChimeType) -> None:
+        """Sets chime type for doorbell. Requires camera to be a doorbell"""
+
+        await self.set_chime_duration(timedelta(milliseconds=chime_type.value))
+
+    async def set_chime_duration(self, duration: timedelta | float) -> None:
+        """Sets chime duration for doorbell. Requires camera to be a doorbell"""
+
+        if not self.feature_flags.has_chime:
+            raise BadRequest("Camera does not have a chime")
+
+        if isinstance(duration, (float, int)):
+            if duration < 0:
+                raise BadRequest("Chime duration must be a positive number of seconds")
+            duration_td = timedelta(seconds=duration)
+        else:
+            duration_td = duration
+
+        if duration_td.total_seconds() > 10:
+            raise BadRequest("Chime duration is too long")
+
+        def callback() -> None:
+            self.chime_duration = duration_td
+
+        await self.queue_update(callback)
+
+    async def set_lcd_text(
+        self,
+        text_type: Optional[DoorbellMessageType],
+        text: Optional[str] = None,
+        reset_at: Union[None, datetime, DEFAULT_TYPE] = None,
+    ) -> None:
+        """Sets doorbell LCD text. Requires camera to be doorbell"""
+
+        if not self.feature_flags.has_lcd_screen:
+            raise BadRequest("Camera does not have an LCD screen")
+
+        if text_type is None:
+            async with self._update_lock:
+                await asyncio.sleep(
+                    0,
+                )  # yield to the event loop once we have the lock to process any pending updates
+                data_before_changes = self.dict_with_excludes()
+                self.lcd_message = None
+                # UniFi Protect bug: clearing LCD text message does _not_ emit a WS message
+                await self.save_device(data_before_changes, force_emit=True)
+                return
+
+        if text_type != DoorbellMessageType.CUSTOM_MESSAGE:
+            if text is not None:
+                raise BadRequest("Can only set text if text_type is CUSTOM_MESSAGE")
+            text = text_type.value.replace("_", " ")
+
+        if reset_at == DEFAULT:
+            reset_at = (
+                utc_now()
+                + self.api.bootstrap.nvr.doorbell_settings.default_message_reset_timeout
+            )
+
+        def callback() -> None:
+            self.lcd_message = LCDMessage(  # type: ignore[call-arg]
+                api=self._api,
+                type=text_type,
+                text=text,  # type: ignore[arg-type]
+                reset_at=reset_at,  # type: ignore[arg-type]
+            )
+
+        await self.queue_update(callback)
+
+        # endregion
+
     # region PTZ
+
+    async def set_person_track(self, enabled: bool) -> None:
+        """Sets person tracking on camera"""
+
+        if not self.feature_flags.is_ptz:
+            raise BadRequest("Camera does not support person tracking")
+
+        def callback() -> None:
+            self.use_global = False
+            self.smart_detect_settings.auto_tracking_object_types = (
+                [SmartDetectObjectType.PERSON] if enabled else []
+            )
+
+        await self.queue_update(callback)
 
     async def ptz_relative_move(
         self,

@@ -7,6 +7,8 @@ ufp-data
 *.js
 *.json
 *.csv
+*.png
+*.gif
 backup
 .benchmarks
 .ruff_cache

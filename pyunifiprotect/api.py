@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from http.cookies import Morsel
 from ipaddress import IPv4Address, IPv6Address
 import logging
+import mimetypes
 from pathlib import Path
 import sys
 import time
@@ -1731,4 +1732,29 @@ class ProtectApiClient(BaseApiClient):
         await self.api_request(
             f"cameras/{device_id}/ptz/patrol/start/{slot}",
             method="post",
+        )
+
+    async def upload_animation(self, image_path: Path) -> None:
+        """Upload image file to use with doorbells with color LCD screens."""
+
+        data = aiohttp.FormData()
+        async with aiofiles.open(image_path, mode="rb") as f:
+            contents = await f.read()
+
+        content_type, _ = mimetypes.guess_type(image_path)
+        data.add_field(
+            name="file",
+            value=contents,
+            filename=image_path.name,
+            content_type=content_type,
+        )
+        await self.api_request_raw("files/animations", method="post", data=data)
+
+    async def delete_animation(self, sprite: str) -> None:
+        """Delete image file for doorbells."""
+
+        await self.api_request(
+            f"files/animations/{sprite}",
+            method="delete",
+            params={"ignoreFileExtension": "true"},
         )

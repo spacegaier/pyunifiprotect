@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
+from pathlib import Path
 
 import orjson
 import typer
@@ -157,5 +158,31 @@ def set_license_plate_recognition(
         if enable_smart:
             await nvr.set_smart_detections(True)
         await nvr.set_license_plate_recognition(value)
+
+    base.run(ctx, callback())
+
+
+@app.command()
+def upload_doorbell_image(ctx: typer.Context, image_path: Path) -> None:
+    """Upload image to use with doorbells that have color LCD screens."""
+
+    nvr: NVR = ctx.obj.device
+
+    async def callback() -> None:
+        await nvr.api.upload_animation(image_path)
+
+    base.run(ctx, callback())
+
+
+@app.command()
+def delete_doorbell_image(ctx: typer.Context, image_sprite: str) -> None:
+    """Delete doorbell image.
+
+    image_sprite is the value from `nvr.doorbellSettings.customImages`"""
+
+    nvr: NVR = ctx.obj.device
+
+    async def callback() -> None:
+        await nvr.api.delete_animation(image_sprite)
 
     base.run(ctx, callback())
