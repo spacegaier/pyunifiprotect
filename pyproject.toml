@@ -34,7 +34,7 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     'async-timeout; python_version < "3.11"',
-    "aiofiles",
+    "aiofiles>=23.2.0",
     "aiohttp",
     "aioshutil",
     "dateparser",
